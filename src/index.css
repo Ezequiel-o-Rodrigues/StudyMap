@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100;
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 12px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.9);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #3b82f6; /* Blue-500 */
+    border-radius: 10px;
+    border: 3px solid rgba(15, 23, 42, 0.9);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #60a5fa;
+  }
+  .custom-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: #3b82f6 rgba(15, 23, 42, 0.9);
+  }
+}

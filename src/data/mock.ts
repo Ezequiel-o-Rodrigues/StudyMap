@@ -1,0 +1,125 @@
+import { StudyNode, NodeStatus } from '../types';
+
+export const studyNodes: StudyNode[] = [
+  {
+    id: '01',
+    title: 'Módulo 1: Consumo de APIs e JSON',
+    description: 'Aprenda a base da comunicação entre sistemas: JSON, Postman, Curl e integrações iniciais com Typebot e N8N.',
+    status: NodeStatus.Completed,
+    order_index: 0,
+    links: [
+      { type: 'reference', title: 'Introdução a JSON', url: 'https://www.json.org/' },
+      { type: 'course', title: 'Postman Academy', url: 'https://learning.postman.com/' },
+      { type: 'youtube', title: 'Como usar cURL', url: 'https://www.youtube.com/results?search_query=como+usar+curl' },
+      { type: 'reference', title: 'Documentação Typebot', url: 'https://docs.typebot.io/' },
+    ],
+  },
+  {
+    id: '02',
+    title: 'Módulo 2: Webhooks e Servidores',
+    description: 'Entenda o conceito de Webhook Server e Client. Integre N8N, Botconversa, Stripe e ferramentas de chat.',
+    status: NodeStatus.Current,
+    order_index: 1,
+    links: [
+      { type: 'youtube', title: 'Webhook vs API', url: 'https://www.youtube.com/watch?v=oDXDYjksMds' },
+      { type: 'reference', title: 'Stripe Webhooks Guide', url: 'https://stripe.com/docs/webhooks' },
+      { type: 'course', title: 'Botconversa Docs', url: 'https://help.botconversa.com.br/' },
+    ],
+  },
+  {
+    id: '03',
+    title: 'Módulo 3: Dominando o N8N',
+    description: 'Funcionamento do n8n, uso de chat e fields, e a diferença crucial entre modo Teste e Produção.',
+    status: NodeStatus.Locked,
+    order_index: 2,
+    links: [
+      { type: 'youtube', title: 'Curso Completo N8N (Interfaces)', url: 'https://youtu.be/3hvNCeWDdKQ?si=XF7pDiKrdN4IPfe-' },
+      { type: 'youtube', title: 'Agentes de IA no N8N', url: 'https://www.youtube.com/watch?v=vpyllOeLhs4' },
+      { type: 'reference', title: 'N8N Documentation', url: 'https://docs.n8n.io/' },
+    ],
+  },
+  {
+    id: '04',
+    title: 'Módulo 4: Lógica e Manipulação de Texto',
+    description: 'Operações essenciais: Regex, Replace, Split, Operador Ternário, Manipulação de Datas e Estruturas de Dados.',
+    status: NodeStatus.Locked,
+    order_index: 3,
+    links: [
+      { type: 'reference', title: 'Regex101: Teste seu Regex', url: 'https://regex101.com/' },
+      { type: 'youtube', title: 'Manipulação de Arrays JS', url: 'https://www.youtube.com/results?search_query=javascript+array+methods' },
+      { type: 'reference', title: 'MDN: String Methods', url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String' },
+    ],
+  },
+  {
+    id: '05',
+    title: 'Módulo 5: Operações com Dados (DB)',
+    description: 'Integração com Google Sheets, Supabase, Nocodb, Baserow e bancos SQL/NoSQL (Postgres, Mongo, MySQL).',
+    status: NodeStatus.Locked,
+    order_index: 4,
+    links: [
+      { type: 'reference', title: 'Supabase Docs', url: 'https://supabase.com/docs' },
+      { type: 'course', title: 'Google Sheets API', url: 'https://developers.google.com/sheets/api' },
+      { type: 'youtube', title: 'Por que não usar FLOAT para dinheiro', url: 'https://www.youtube.com/watch?v=vFBUWtrzz48' },
+    ],
+  },
+  {
+    id: '06',
+    title: 'Módulo 6: Fluxos Avançados e Debug',
+    description: 'Loops, Debugging, HTTP Requests complexos e Webhook Respond para criar automações profissionais.',
+    status: NodeStatus.Locked,
+    order_index: 5,
+    links: [
+      { type: 'youtube', title: 'Microsserviços e DDD', url: 'https://www.youtube.com/watch?v=JXeJUfBCg4U' },
+      { type: 'reference', title: 'N8N: Error Handling', url: 'https://docs.n8n.io/hosting/scaling/error-handling/' },
+    ],
+  },
+  {
+    id: '07',
+    title: 'Módulo 7: Projetos Práticos (Geral)',
+    description: 'Exercícios: Resumo de grupos, automação de vendas, bots de moderação com IA e assistentes pessoais.',
+    status: NodeStatus.Locked,
+    order_index: 6,
+    links: [
+      { type: 'youtube', title: 'RAG vs Fine Tuning', url: 'https://www.youtube.com/watch?v=00Q0G84kq3M' },
+      { type: 'youtube', title: 'Agentic RAG + Knowledge Graphs', url: 'https://www.youtube.com/watch?v=p0FERNkpyHE' },
+    ],
+  },
+  {
+    id: '08',
+    title: 'Módulo 8: Node.js e Backend',
+    description: 'Subir servidor Express, Middlewares, POO, Classes Built-in e Debug avançado com VS Code.',
+    status: NodeStatus.Locked,
+    order_index: 7,
+    links: [
+      { type: 'course', title: 'Curso.dev', url: 'https://curso.dev/' },
+      { type: 'reference', title: 'Express.js Guide', url: 'https://expressjs.com/' },
+    ],
+  },
+  {
+    id: '09',
+    title: 'Módulo 9: Infraestrutura e Linux',
+    description: 'Comandos básicos, SSH, Debug de rede, Processos e Modelagem de Banco de Dados (Joins, Triggers).',
+    status: NodeStatus.Locked,
+    order_index: 8,
+    links: [
+      { type: 'youtube', title: 'O Fim da Programação?', url: 'https://youtu.be/vaFHawMRsps' },
+      { type: 'reference', title: 'Linux Journey', url: 'https://linuxjourney.com/' },
+    ],
+  },
+  {
+    id: '10',
+    title: 'Módulo 10: Central de Cursos e Referências',
+    description: 'Acesso às comunidades e canais essenciais para continuar evoluindo.',
+    status: NodeStatus.Locked,
+    order_index: 9,
+    links: [
+      { type: 'course', title: 'Sem Codar', url: 'https://comunidade.semcodar.com.br/', credentials: 'User: estudo.techys@gmail.com | Pass: #@Estudo147' },
+      { type: 'course', title: 'Pack Typebot', url: 'https://packtypebot.com.br/cursos/pack-typebot/', credentials: 'User: estudo.techys@gmail.com | Pass: #@Estudo147' },
+      { type: 'course', title: 'AI Builders', url: 'https://comunidade.aibuilders.com.br/', credentials: 'User: estudo.techys@gmail.com | Pass: #@Estudo147' },
+      { type: 'course', title: 'Adapta', url: 'https://app.adapta.one/', credentials: 'User: automacao.redesbrasil@gmail.com | Pass: Redes147#@' },
+      { type: 'course', title: 'Arquiteto Renato Augusto', url: 'https://hotmart.com/pt-BR/club/renato-augusto/products/5683152', credentials: 'User: licencas.techify@gmail.com | Pass: HotTech147#@' },
+      { type: 'youtube', title: 'Canal: Promovaweb', url: 'https://www.youtube.com/@promovaweb' },
+      { type: 'youtube', title: 'Canal: Lucas Montano', url: 'https://www.youtube.com/@LucasMontano' },
+    ],
+  },
+];
