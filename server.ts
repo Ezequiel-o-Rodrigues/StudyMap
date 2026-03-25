@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const { Pool } = pg;
 
 // Configuração do Banco de Dados (Preferência por DATABASE_URL)
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_wKB9cH1dFRoZ@ep-young-tooth-ai3vbm98-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const connectionString = process.env.DATABASE_URL;
 const poolConfig = { 
   connectionString, 
   ssl: { rejectUnauthorized: false } 
