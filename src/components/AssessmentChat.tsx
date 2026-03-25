@@ -89,12 +89,12 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, loading]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Inicializa o chat
@@ -137,21 +137,21 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
       // Primeiro, verificamos se já existem perguntas no banco para este link e dificuldade (Cache Local)
       const cachedQuestions = await api.getAssessmentCache(node.id, link.url, diff);
 
-      if (cachedQuestions && cachedQuestions.length >= 3) {
+      if (cachedQuestions && cachedQuestions.length > 0) {
         // Sanitizar opções caso venham como string do banco
         const sanitized = cachedQuestions.map((q: any) => ({
           ...q,
           options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
         })).filter((q: any) => q.question && q.options && q.options.length > 0);
 
-        if (sanitized.length >= 3) {
+        if (sanitized.length > 0) {
           setQuestions(sanitized);
           return sanitized;
         }
       }
 
       // Se não houver no cache, chamamos o backend para gerar via n8n
-      const generated = await api.generateAssessment({
+      let generated = await api.generateAssessment({
         node_id: node.id,
         node_title: node.title,
         link_url: link.url,
@@ -159,7 +159,42 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
         user_email: (await supabase.auth.getUser()).data.user?.email
       });
       
-      const sanitizedGenerated = (Array.isArray(generated) ? generated : []).map((q: any) => {
+      // Robust parsing for n8n response
+      let rawQuestions: any[] = [];
+      
+      if (Array.isArray(generated)) {
+        rawQuestions = generated;
+      } else if (typeof generated === 'string') {
+        try {
+          const parsed = JSON.parse(generated);
+          rawQuestions = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.error("Erro ao parsear string do n8n:", e);
+        }
+      } else if (generated && typeof generated === 'object') {
+        // Tenta extrair de propriedades comuns que o n8n ou o fetch podem usar
+        const possibleArray = (generated as any).questions || (generated as any).data || (generated as any).body || (generated as any).output;
+        if (Array.isArray(possibleArray)) {
+          rawQuestions = possibleArray;
+        } else if (typeof possibleArray === 'string') {
+          try {
+            const parsed = JSON.parse(possibleArray);
+            rawQuestions = Array.isArray(parsed) ? parsed : [];
+          } catch(e) {}
+        } else {
+          // Se for um objeto único que parece uma questão, coloca num array
+          if ((generated as any).question && (generated as any).options) {
+            rawQuestions = [generated];
+          }
+        }
+      }
+
+      // Se for um array de arrays [[...]], achata
+      if (rawQuestions.length === 1 && Array.isArray(rawQuestions[0])) {
+        rawQuestions = rawQuestions[0];
+      }
+
+      const sanitizedGenerated = rawQuestions.map((q: any) => {
         let finalOptions = q.options;
         if (typeof finalOptions === 'string') {
           try {
@@ -177,6 +212,23 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
 
       if (sanitizedGenerated.length === 0) {
         throw new Error("A IA gerou um formato inválido ou vazio. Por favor, tente novamente.");
+      }
+
+      // Salva no banco de questões (Cache) para uso futuro
+      // Fazemos isso de forma assíncrona para não travar o usuário
+      try {
+        const questionsToSave = sanitizedGenerated.map(q => ({
+          node_id: node.id,
+          content_source_url: link.url,
+          difficulty: diff,
+          question: q.question,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          explanation: q.explanation
+        }));
+        await api.saveAssessmentCache(questionsToSave);
+      } catch (saveError) {
+        console.warn('Falha ao salvar questões no cache, mas o teste continuará:', saveError);
       }
 
       setQuestions(sanitizedGenerated);
@@ -338,6 +390,7 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Salvamos o resultado (mesmo se reprovado) para registro histórico
         await api.saveTestResult({
           user_id: user.id,
           node_id: node.id,
@@ -347,10 +400,39 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
           passed: finalResult.passed,
           chat_history: messages
         });
-        onComplete(finalResult.passed, finalResult.score);
+
+        if (finalResult.passed) {
+          onComplete(finalResult.passed, finalResult.score);
+        } else {
+          // Se reprovado, reiniciamos o teste no mesmo conteúdo e dificuldade
+          const diffLabel = difficulty === 'beginner' ? 'Iniciante' : difficulty === 'intermediate' ? 'Intermediário' : 'Especialista';
+          
+          setScore(0);
+          setCurrentQuestionIndex(0);
+          setFinalResult(null);
+          setStep('testing');
+          
+          // Resetamos as mensagens para o início do teste
+          setMessages([
+            { 
+              role: 'assistant', 
+              content: `Não desanime! Vamos tentar novamente o nível **${diffLabel}** sobre **${selectedLink?.title}**. Você consegue! 🚀`,
+            },
+            {
+              role: 'assistant',
+              content: questions[0].question,
+              type: 'question',
+              options: questions[0].options,
+              questionData: questions[0]
+            }
+          ]);
+          
+          toast.success('Teste reiniciado! Boa sorte.');
+        }
       }
     } catch (error) {
       console.error('Erro ao finalizar:', error);
+      toast.error('Erro ao processar resultado');
     } finally {
       setIsFinalizing(false);
     }
@@ -381,8 +463,8 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
       {/* Área de Mensagens */}
       <div 
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-scroll p-6 space-y-6 custom-scrollbar pb-40 overscroll-contain"
-        style={{ WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable' }}
+        className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 custom-scrollbar pb-20 overscroll-contain touch-pan-y"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable', overflowAnchor: 'auto' }}
       >
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => (
@@ -399,7 +481,7 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
                   {msg.role === 'assistant' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
                 </div>
                 <div className="space-y-3 w-full">
-                  <div className={`p-5 rounded-2xl text-lg leading-relaxed shadow-2xl ${
+                  <div className={`p-5 rounded-2xl text-lg leading-relaxed shadow-2xl break-words whitespace-pre-wrap ${
                     msg.role === 'assistant' 
                       ? 'bg-slate-700/40 border border-slate-600/50 text-white rounded-tl-none backdrop-blur-sm' 
                       : 'bg-blue-600 text-white rounded-tr-none'
@@ -460,15 +542,24 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
                         className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
                           finalResult?.passed 
                             ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20' 
-                            : 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20'
+                            : 'bg-orange-600 hover:bg-orange-500 text-white shadow-orange-900/20'
                         }`}
                       >
                         {isFinalizing ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
                           <>
-                            <CheckCircle2 className="w-5 h-5" />
-                            Finalizar Avaliação
+                            {finalResult?.passed ? (
+                              <>
+                                <CheckCircle2 className="w-5 h-5" />
+                                Finalizar Avaliação
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-5 h-5" />
+                                Tentar Novamente
+                              </>
+                            )}
                           </>
                         )}
                       </button>

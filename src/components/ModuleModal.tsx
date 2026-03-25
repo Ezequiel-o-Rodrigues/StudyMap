@@ -217,7 +217,7 @@ export default function ModuleModal({ node, onClose, onComplete, isAdmin }: Modu
             className={`bg-slate-900 border border-slate-700/80 rounded-2xl w-full transition-all duration-500 shadow-2xl shadow-blue-900/20 relative flex flex-col ${showAssessment ? 'max-w-[95vw] h-[90vh] m-0' : 'max-w-5xl my-4'}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`${showAssessment ? 'p-2 md:p-4 overflow-hidden' : 'p-4 md:p-8'} flex flex-col ${showAssessment ? 'h-full min-h-0' : ''}`}>
+            <div className={`${showAssessment ? 'p-2 md:p-4 overflow-hidden h-full' : 'p-4 md:p-8'} flex flex-col min-h-0`}>
               <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-slate-200 transition-colors z-50">
                 <X className="w-6 h-6" />
               </button>
@@ -229,7 +229,7 @@ export default function ModuleModal({ node, onClose, onComplete, isAdmin }: Modu
                 </>
               )}
 
-              <div className={`grid ${isAdmin || showAssessment ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-5'} gap-6 md:gap-8 ${showAssessment ? 'flex-1 overflow-hidden h-full min-h-0' : ''}`}>
+              <div className={`${showAssessment ? 'flex flex-col flex-1 min-h-0 overflow-hidden' : 'grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-8'}`}>
                 {/* Links Section */}
                 {!showAssessment && (
                   <div className={`${isAdmin ? '' : 'md:col-span-2'} space-y-6`}>
@@ -324,7 +324,7 @@ export default function ModuleModal({ node, onClose, onComplete, isAdmin }: Modu
 
                 {/* Report Section - Hidden for Admin */}
                 {!isAdmin && (
-                  <div className={`${showAssessment ? 'h-full flex flex-col' : 'md:col-span-3 space-y-4'}`}>
+                  <div className={`${showAssessment ? 'flex-1 min-h-0 flex flex-col' : 'md:col-span-3 space-y-4'}`}>
                     {!showAssessment && (
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Avaliação & Relatório</h3>

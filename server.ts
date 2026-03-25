@@ -133,6 +133,7 @@ const isAdmin = async (req: any, res: any, next: any) => {
 
 // Configuração n8n
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://n8n.coolify.teste.techify.run/webhook/gerar-avaliacao';
+const N8N_API_KEY = process.env.N8N_API_KEY;
 
 // --- SCHEMAS DE VALIDAÇÃO (ZOD) ---
 const NodeSchema = z.object({
@@ -526,6 +527,7 @@ async function startServer() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(N8N_API_KEY ? { 'X-N8N-API-KEY': N8N_API_KEY } : {})
         },
         body: JSON.stringify(payload),
         signal: controller.signal
