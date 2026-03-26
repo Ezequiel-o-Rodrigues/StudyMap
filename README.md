@@ -292,6 +292,4 @@ npm run build
 
 <div align="center">
 
-*Feito com ❤️ usando React, Node.js, PostgreSQL, n8n e Google AI*
-
 </div>
