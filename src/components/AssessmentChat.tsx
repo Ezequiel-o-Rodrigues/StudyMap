@@ -162,32 +162,34 @@ export default function AssessmentChat({ node, onComplete, initialLink }: Assess
       // Robust parsing for n8n response
       let rawQuestions: any[] = [];
       
-      if (Array.isArray(generated)) {
-        rawQuestions = generated;
-      } else if (typeof generated === 'string') {
-        try {
-          const parsed = JSON.parse(generated);
-          rawQuestions = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-          console.error("Erro ao parsear string do n8n:", e);
+      const tryParse = (val: any): any[] => {
+        if (Array.isArray(val)) {
+          // Se for um array de strings, tenta parsear a primeira string
+          if (val.length > 0 && typeof val[0] === 'string') {
+            try {
+              const p = JSON.parse(val[0]);
+              if (Array.isArray(p)) return p;
+            } catch(e) {}
+          }
+          return val;
         }
-      } else if (generated && typeof generated === 'object') {
-        // Tenta extrair de propriedades comuns que o n8n ou o fetch podem usar
-        const possibleArray = (generated as any).questions || (generated as any).data || (generated as any).body || (generated as any).output;
-        if (Array.isArray(possibleArray)) {
-          rawQuestions = possibleArray;
-        } else if (typeof possibleArray === 'string') {
+        if (typeof val === 'string') {
           try {
-            const parsed = JSON.parse(possibleArray);
-            rawQuestions = Array.isArray(parsed) ? parsed : [];
-          } catch(e) {}
-        } else {
-          // Se for um objeto único que parece uma questão, coloca num array
-          if ((generated as any).question && (generated as any).options) {
-            rawQuestions = [generated];
+            const p = JSON.parse(val);
+            return Array.isArray(p) ? p : [p];
+          } catch(e) {
+            return [];
           }
         }
-      }
+        if (val && typeof val === 'object') {
+          const possible = val.questions || val.data || val.body || val.output || val.items;
+          if (possible) return tryParse(possible);
+          if (val.question && val.options) return [val];
+        }
+        return [];
+      };
+
+      rawQuestions = tryParse(generated);
 
       // Se for um array de arrays [[...]], achata
       if (rawQuestions.length === 1 && Array.isArray(rawQuestions[0])) {

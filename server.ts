@@ -298,11 +298,17 @@ async function initDb() {
 }
 
 async function startServer() {
-  await initDb();
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
 
   app.use(express.json());
+
+  // Inicializa o banco de dados em segundo plano para não bloquear o início do servidor
+  initDb().then(() => {
+    console.log('Database initialization background task completed.');
+  }).catch(err => {
+    console.error('Critical error during background database initialization:', err);
+  });
 
   // Health check aprimorado
   app.get("/api/health", async (req, res) => {
@@ -609,9 +615,23 @@ async function startServer() {
         // Se o array estiver vazio, não faz sentido salvar
         if (options.length === 0) continue;
 
+        // Converter correct_answer para número se for letra (A, B, C, D)
+        let correctAnswer = q.correct_answer;
+        if (typeof correctAnswer === 'string') {
+          const letterMap: Record<string, number> = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 };
+          const upper = correctAnswer.trim().toUpperCase().charAt(0);
+          if (letterMap[upper] !== undefined) {
+            correctAnswer = letterMap[upper];
+          } else {
+            correctAnswer = parseInt(correctAnswer, 10) || 0;
+          }
+        } else {
+          correctAnswer = parseInt(correctAnswer, 10) || 0;
+        }
+
         const result = await pool.query(
           "INSERT INTO ai_assessments_bank (node_id, content_source_url, difficulty, question, options, correct_answer, explanation) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-          [q.node_id, q.content_source_url, q.difficulty, q.question, JSON.stringify(options), q.correct_answer || 0, q.explanation || '']
+          [q.node_id, q.content_source_url, q.difficulty, q.question, JSON.stringify(options), correctAnswer, q.explanation || '']
         );
         inserted.push(result.rows[0]);
       }
