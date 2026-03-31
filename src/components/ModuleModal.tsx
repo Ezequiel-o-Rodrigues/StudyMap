@@ -232,7 +232,7 @@ export default function ModuleModal({ node, onClose, onComplete, isAdmin }: Modu
               <div className={`${showAssessment ? 'flex flex-col flex-1 min-h-0 overflow-hidden' : 'grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-8'}`}>
                 {/* Links Section */}
                 {!showAssessment && (
-                  <div className={`${isAdmin ? '' : 'md:col-span-2'} space-y-6`}>
+                  <div className={`${isAdmin ? 'md:col-span-5' : 'md:col-span-2'} space-y-6`}>
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Materiais de Estudo</h3>

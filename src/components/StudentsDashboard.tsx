@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { LearningReport, StudyNode, UserRole } from '../types';
-import { Users, CheckCircle2, Clock, MessageSquare, Check, X, Search, ChevronRight, GraduationCap, Paperclip, FileText, Star, BrainCircuit } from 'lucide-react';
+import { Users, CheckCircle2, Clock, MessageSquare, Check, X, Search, ChevronRight, GraduationCap, Paperclip, FileText, Star, BrainCircuit, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface StudentProgress {
@@ -13,6 +13,7 @@ interface StudentProgress {
   total_count: number;
   last_activity?: string;
   has_pending_report?: boolean;
+  avatar_url?: string;
 }
 
 export default function StudentsDashboard() {
@@ -27,6 +28,7 @@ export default function StudentsDashboard() {
   const [loadingAssessments, setLoadingAssessments] = useState(false);
   const [activeQueueIndex, setActiveQueueIndex] = useState(0);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [isHistoryMinimized, setIsHistoryMinimized] = useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   // Helper functions moved up to avoid hoisting issues
@@ -58,8 +60,8 @@ export default function StudentsDashboard() {
 
   const otherNodes = React.useMemo(() => {
     if (!selectedStudentId) return allNodes;
-    const currentNode = getCurrentModuleNode(selectedStudentId);
-    return allNodes.filter(n => currentNode?.id !== n.id);
+    // We now show all nodes in the queue, but we can highlight the current one or just show all
+    return allNodes;
   }, [allNodes, selectedStudentId, reports]);
 
   const scrollModules = (direction: 'up' | 'down') => {
@@ -85,9 +87,23 @@ export default function StudentsDashboard() {
     }
   }, [selectedStudentId]);
 
+  useEffect(() => {
+    // When a student is selected, set the active index to their current module
+    if (selectedStudentId && allNodes.length > 0) {
+      const currentNode = getCurrentModuleNode(selectedStudentId);
+      if (currentNode) {
+        const index = allNodes.findIndex(n => n.id === currentNode.id);
+        if (index !== -1) {
+          setActiveQueueIndex(index);
+        }
+      }
+    }
+  }, [selectedStudentId, allNodes, reports]);
+
   async function fetchStudentAssessments(userId: string) {
     setLoadingAssessments(true);
     try {
+      // Fetch all assessments for the student, not just the current module
       const data = await api.getTestResults(userId);
       if (Array.isArray(data)) {
         setStudentAssessments(data);
@@ -120,7 +136,7 @@ export default function StudentsDashboard() {
       // 4. Buscar perfis para obter os nomes sociais
       const profilesData = await api.adminGetProfiles();
 
-      const profileMap = new Map(Array.isArray(profilesData) ? profilesData.map((p: any) => [p.user_id, p.full_name]) : []);
+      const profileMap = new Map(Array.isArray(profilesData) ? profilesData.map((p: any) => [p.user_id, { name: p.full_name, avatar: p.avatar_url }]) : []);
 
       // 5. Mapear estudantes
       const studentMap = new Map<string, StudentProgress>();
@@ -132,15 +148,17 @@ export default function StudentsDashboard() {
       
       if (Array.isArray(rolesData)) {
         rolesData.forEach((student: any) => {
+          const profile = profileMap.get(student.user_id);
           // Usa o nome do perfil se disponível, senão usa o email, senão um fallback
-          const studentName = student.full_name || student.email || `Aluno ${student.user_id.slice(0, 8)}`;
+          const studentName = profile?.name || student.email || `Aluno ${student.user_id.slice(0, 8)}`;
           
           studentMap.set(student.user_id, {
             user_id: student.user_id,
             email: studentName,
             completed_count: parseInt(student.completed_count),
             total_count: totalNodes,
-            has_pending_report: pendingReportUserIds.has(student.user_id)
+            has_pending_report: pendingReportUserIds.has(student.user_id),
+            avatar_url: profile?.avatar
           });
         });
       }
@@ -148,7 +166,8 @@ export default function StudentsDashboard() {
       setStudents(Array.from(studentMap.values()));
       setReports(Array.isArray(reportsData) ? reportsData.map((r: any) => ({
         ...r,
-        user_email: profileMap.get(r.user_id) || `Aluno ${r.user_id.slice(0, 8)}`
+        user_email: profileMap.get(r.user_id)?.name || `Aluno ${r.user_id.slice(0, 8)}`,
+        node_title: nodes.find((n: any) => n.id === r.node_id)?.title || 'Módulo Desconhecido'
       })) : []);
 
     } catch (error) {
@@ -210,8 +229,17 @@ export default function StudentsDashboard() {
                   </div>
                   
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center border border-blue-500/20 relative">
-                      <Users className="w-6 h-6 text-blue-400" />
+                    <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center border border-blue-500/20 relative overflow-hidden">
+                      {student.avatar_url ? (
+                        <img 
+                          src={student.avatar_url} 
+                          alt={student.email} 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer" 
+                        />
+                      ) : (
+                        <Users className="w-6 h-6 text-blue-400" />
+                      )}
                       {student.has_pending_report && (
                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-slate-900 rounded-full animate-pulse" title="Relatório Pendente" />
                       )}
@@ -284,8 +312,17 @@ export default function StudentsDashboard() {
             </button>
 
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
-              <div className="w-20 h-20 md:w-24 md:h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-600/20 shrink-0">
-                <Users className="w-10 h-10 md:w-12 md:h-12 text-white" />
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-600/20 shrink-0 overflow-hidden">
+                {selectedStudent?.avatar_url ? (
+                  <img 
+                    src={selectedStudent.avatar_url} 
+                    alt={selectedStudent.email}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <Users className="w-10 h-10 md:w-12 md:h-12 text-white" />
+                )}
               </div>
               <div className="flex-1 text-center md:text-left w-full">
                 <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
@@ -309,6 +346,49 @@ export default function StudentsDashboard() {
                     <p className="text-white font-bold text-sm md:text-base">{studentReports.length} enviados</p>
                   </div>
                 </div>
+
+                {/* Card de Desempenho Geral */}
+                {studentAssessments.length > 0 && (
+                  <div className="mt-6 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 p-6 rounded-3xl shadow-xl shadow-blue-900/10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-600 rounded-xl">
+                        <Trophy className="w-5 h-5 text-white" />
+                      </div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-widest">Desempenho Geral em Avaliações</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-slate-900/60 p-3 rounded-2xl border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Média de Sucesso</p>
+                        <p className="text-xl font-black text-blue-400">
+                          {studentAssessments.length > 0 
+                            ? Math.round(studentAssessments.reduce((acc, a) => acc + (Number(a.score) || 0), 0) / studentAssessments.length)
+                            : 0}%
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 p-3 rounded-2xl border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Taxa de Aprovação</p>
+                        <p className="text-xl font-black text-green-400">
+                          {studentAssessments.length > 0 
+                            ? Math.round((studentAssessments.filter(a => a.passed).length / studentAssessments.length) * 100)
+                            : 0}%
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 p-3 rounded-2xl border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total de Testes</p>
+                        <p className="text-xl font-black text-white">{studentAssessments.length}</p>
+                      </div>
+                      <div className="bg-slate-900/60 p-3 rounded-2xl border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Melhor Nota</p>
+                        <p className="text-xl font-black text-yellow-400">
+                          {studentAssessments.length > 0 
+                            ? Math.max(...studentAssessments.map(a => Number(a.score) || 0))
+                            : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Botão de Promoção para Instrutor */}
                 <div className="mt-6 flex justify-center md:justify-start">
@@ -353,13 +433,13 @@ export default function StudentsDashboard() {
               ) : (
                 <div className="relative bg-slate-900 border border-slate-800 rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl min-h-[500px] md:min-h-[600px] flex flex-col md:flex-row">
                   
-                  {/* Módulo Atual em Destaque (Principal) */}
+                  {/* Módulo Selecionado em Destaque (Principal) */}
                   <div className={`flex-1 p-6 md:p-10 relative overflow-hidden transition-all duration-500 ${isQueueOpen ? 'md:pr-80' : 'md:pr-10'}`}>
                     <div className="absolute top-0 right-0 p-6 md:p-10 opacity-5 pointer-events-none">
                       <BrainCircuit className="w-32 h-32 md:w-48 md:h-48 text-blue-500" />
                     </div>
                     
-                    {allNodes.filter(n => getCurrentModuleNode(selectedStudentId!)?.id === n.id).map(node => {
+                    {allNodes.filter((_, idx) => idx === activeQueueIndex).map(node => {
                       const nodeResults = studentAssessments.filter(r => r.node_id === node.id && r.passed === true);
                       const levels = ['beginner', 'intermediate', 'expert'];
                       const totalRequired = node.links.length * levels.length;
@@ -369,17 +449,27 @@ export default function StudentsDashboard() {
                         ).length;
                       }, 0);
 
+                      const isCurrentModule = getCurrentModuleNode(selectedStudentId!)?.id === node.id;
+
                       return (
                         <div key={node.id} className="relative z-10 h-full flex flex-col">
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8 md:mb-10">
                             <div>
                               <div className="flex items-center gap-3 mb-3">
-                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Módulo Atual</span>
-                                <div className="flex gap-1">
-                                  {[1, 2, 3].map(i => (
-                                    <div key={i} className="w-1 h-1 rounded-full bg-blue-500/30 animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
-                                  ))}
-                                </div>
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
+                                  isCurrentModule 
+                                    ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' 
+                                    : 'text-slate-400 bg-slate-800/50 border-slate-700/50'
+                                }`}>
+                                  {isCurrentModule ? 'Módulo Atual' : 'Histórico de Módulo'}
+                                </span>
+                                {isCurrentModule && (
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3].map(i => (
+                                      <div key={i} className="w-1 h-1 rounded-full bg-blue-500/30 animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               <h4 className="text-2xl md:text-4xl font-black text-white tracking-tighter leading-tight">{node.title}</h4>
                             </div>
@@ -457,34 +547,34 @@ export default function StudentsDashboard() {
                       isQueueOpen ? 'translate-x-0' : 'translate-x-full'
                     }`}
                   >
-                    {/* Controles de Navegação da Fila */}
-                    <div className="absolute inset-y-0 -left-6 hidden md:flex flex-col justify-center gap-4 z-50">
-                      <button 
-                        onClick={() => scrollModules('up')}
-                        disabled={activeQueueIndex === 0}
-                        className={`p-3 rounded-full border transition-all shadow-2xl ${
-                          activeQueueIndex === 0 
-                            ? 'bg-slate-900 border-slate-800 text-slate-700 cursor-not-allowed' 
-                            : 'bg-blue-600 border-blue-500 text-white hover:scale-110 active:scale-95'
-                        }`}
-                      >
-                        <ChevronRight className="w-5 h-5 -rotate-90" />
-                      </button>
-                      <button 
-                        onClick={() => scrollModules('down')}
-                        disabled={activeQueueIndex === otherNodes.length - 1}
-                        className={`p-3 rounded-full border transition-all shadow-2xl ${
-                          activeQueueIndex === otherNodes.length - 1 
-                            ? 'bg-slate-900 border-slate-800 text-slate-700 cursor-not-allowed' 
-                            : 'bg-blue-600 border-blue-500 text-white hover:scale-110 active:scale-95'
-                        }`}
-                      >
-                        <ChevronRight className="w-5 h-5 rotate-90" />
-                      </button>
-                    </div>
-
                     <div className="p-6 md:p-8 border-b border-slate-800/50 flex justify-between items-center">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Fila de Módulos</h4>
+                      <div className="flex flex-col">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Fila de Módulos</h4>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => scrollModules('up')}
+                            disabled={activeQueueIndex === 0}
+                            className={`p-1.5 rounded-lg border transition-all ${
+                              activeQueueIndex === 0 
+                                ? 'bg-slate-900 border-slate-800 text-slate-700 cursor-not-allowed' 
+                                : 'bg-blue-600 border-blue-500 text-white hover:scale-110 active:scale-95'
+                            }`}
+                          >
+                            <ChevronRight className="w-4 h-4 -rotate-90" />
+                          </button>
+                          <button 
+                            onClick={() => scrollModules('down')}
+                            disabled={activeQueueIndex === otherNodes.length - 1}
+                            className={`p-1.5 rounded-lg border transition-all ${
+                              activeQueueIndex === otherNodes.length - 1 
+                                ? 'bg-slate-900 border-slate-800 text-slate-700 cursor-not-allowed' 
+                                : 'bg-blue-600 border-blue-500 text-white hover:scale-110 active:scale-95'
+                            }`}
+                          >
+                            <ChevronRight className="w-4 h-4 rotate-90" />
+                          </button>
+                        </div>
+                      </div>
                       <button onClick={() => setIsQueueOpen(false)} className="p-2 bg-slate-900 rounded-xl text-slate-500 hover:text-white transition-colors">
                         <X className="w-6 h-6" />
                       </button>
@@ -511,12 +601,13 @@ export default function StudentsDashboard() {
                           const isActive = idx === activeQueueIndex;
 
                           return (
-                            <div 
+                            <button 
                               key={node.id} 
-                              className={`h-32 rounded-[2rem] md:rounded-[2.5rem] p-6 flex flex-col justify-center border transition-all duration-500 ${
+                              onClick={() => setActiveQueueIndex(idx)}
+                              className={`w-full h-32 rounded-[2rem] md:rounded-[2.5rem] p-6 flex flex-col justify-center border transition-all duration-500 text-left ${
                                 isActive 
                                   ? 'bg-slate-900 border-blue-500/50 scale-100 opacity-100 shadow-xl shadow-blue-500/10' 
-                                  : 'bg-transparent border-transparent scale-90 opacity-20'
+                                  : 'bg-transparent border-transparent scale-90 opacity-20 hover:opacity-50'
                               }`}
                             >
                               <div className="flex justify-between items-start mb-3">
@@ -540,7 +631,7 @@ export default function StudentsDashboard() {
                                   </div>
                                 ))}
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -561,6 +652,115 @@ export default function StudentsDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <BrainCircuit className="w-5 h-5 text-blue-500" /> Histórico Completo de Avaliações
+                </h3>
+                <button 
+                  onClick={() => setIsHistoryMinimized(!isHistoryMinimized)}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all border border-slate-700"
+                >
+                  {isHistoryMinimized ? (
+                    <div className="flex items-center gap-2 px-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest">Expandir</span>
+                      <ChevronRight className="w-4 h-4 rotate-90" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest">Minimizar</span>
+                      <ChevronRight className="w-4 h-4 -rotate-90" />
+                    </div>
+                  )}
+                </button>
+              </div>
+              
+              <AnimatePresence>
+                {!isHistoryMinimized && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden"
+                  >
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-800/50 border-b border-slate-800">
+                            <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Módulo</th>
+                            <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Conteúdo</th>
+                            <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Dificuldade</th>
+                            <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Nota</th>
+                            <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Status</th>
+                            <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Data</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {studentAssessments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((assessment, idx) => {
+                            const node = allNodes.find(n => n.id === assessment.node_id);
+                            const link = node?.links.find(l => l.url === assessment.link_url);
+                            
+                            return (
+                              <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                                <td className="p-4">
+                                  <span className="text-xs font-bold text-white">{node?.title || 'Módulo Removido'}</span>
+                                </td>
+                                <td className="p-4">
+                                  <span className="text-[10px] text-slate-400 font-medium truncate max-w-[200px] block">
+                                    {link?.title || assessment.link_url}
+                                  </span>
+                                </td>
+                                <td className="p-4">
+                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
+                                    assessment.difficulty === 'expert' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                    assessment.difficulty === 'intermediate' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                    'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                                  }`}>
+                                    {assessment.difficulty}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className={`text-sm font-black ${assessment.score >= 70 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {assessment.score}%
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  {assessment.passed ? (
+                                    <div className="flex items-center justify-center gap-1 text-green-500">
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <span className="text-[9px] font-black uppercase">Aprovado</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center gap-1 text-red-500">
+                                      <X className="w-4 h-4" />
+                                      <span className="text-[9px] font-black uppercase">Falhou</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="p-4">
+                                  <span className="text-[10px] text-slate-500 font-medium">
+                                    {new Date(assessment.created_at).toLocaleDateString()}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {studentAssessments.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="p-10 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                                Nenhuma avaliação realizada ainda.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="space-y-6">

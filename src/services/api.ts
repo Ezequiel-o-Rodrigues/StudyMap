@@ -44,6 +44,24 @@ export const api = {
     });
     return res.json();
   },
+  async bulkDeleteNodes(ids: string[]) {
+    const headers = await getHeaders();
+    const res = await fetch('/api/nodes/bulk-delete', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ids })
+    });
+    return res.json();
+  },
+  async reorderNodes(orders: { id: string, order_index: number }[]) {
+    const headers = await getHeaders();
+    const res = await fetch('/api/nodes/reorder', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ orders })
+    });
+    return res.json();
+  },
 
   // Progresso
   async getProgress(userId: string) {

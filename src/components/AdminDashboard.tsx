@@ -14,10 +14,13 @@ import toast from 'react-hot-toast';
 export default function AdminDashboard() {
   // Estados para gerenciar a lista de módulos, edição e mensagens de feedback
   const [nodes, setNodes] = useState<StudyNode[]>([]);
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [editingNode, setEditingNode] = useState<Partial<StudyNode> | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [seedConfirm, setSeedConfirm] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   // Carrega os módulos ao montar o componente
   useEffect(() => {
@@ -102,9 +105,81 @@ export default function AdminDashboard() {
       await api.deleteNode(id);
       toast.success('Módulo excluído!');
       setDeleteConfirm(null);
+      setSelectedNodes(prev => prev.filter(nodeId => nodeId !== id));
       await fetchNodes();
     } catch (err: any) {
       toast.error('Erro inesperado ao excluir: ' + err.message);
+    }
+  };
+
+  /**
+   * Exclui múltiplos módulos selecionados.
+   */
+  const handleBulkDelete = async () => {
+    if (selectedNodes.length === 0) return;
+    try {
+      setLoading(true);
+      await api.bulkDeleteNodes(selectedNodes);
+      toast.success(`${selectedNodes.length} módulos excluídos!`);
+      setSelectedNodes([]);
+      setBulkDeleteConfirm(false);
+      await fetchNodes();
+    } catch (err: any) {
+      toast.error('Erro ao excluir módulos: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const libraryNode = nodes.find(n => n.order_index === 9);
+  const mainNodesList = nodes.filter(n => n.id !== libraryNode?.id);
+
+  /**
+   * Altera a ordem de um módulo.
+   */
+  const handleMoveNode = async (index: number, direction: 'up' | 'down') => {
+    const newMainNodes = [...mainNodesList];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= newMainNodes.length) return;
+    
+    // Swap
+    const temp = newMainNodes[index];
+    newMainNodes[index] = newMainNodes[targetIndex];
+    newMainNodes[targetIndex] = temp;
+    
+    // Update order_index
+    const updatedNodes = newMainNodes.map((node, i) => ({
+      ...node,
+      order_index: i
+    }));
+    
+    setNodes(libraryNode ? [libraryNode, ...updatedNodes] : updatedNodes);
+    
+    try {
+      setReordering(true);
+      await api.reorderNodes(updatedNodes.map(n => ({ id: n.id, order_index: n.order_index })));
+      toast.success('Ordem atualizada!');
+    } catch (err: any) {
+      toast.error('Erro ao reordenar: ' + err.message);
+      await fetchNodes(); // Revert on error
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const toggleSelectNode = (id: string) => {
+    setSelectedNodes(prev => 
+      prev.includes(id) ? prev.filter(nodeId => nodeId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const mainNodeIds = mainNodesList.map(n => n.id);
+    if (selectedNodes.length === mainNodeIds.length) {
+      setSelectedNodes([]);
+    } else {
+      setSelectedNodes(mainNodeIds);
     }
   };
 
@@ -136,6 +211,26 @@ export default function AdminDashboard() {
           <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Configure a trilha e a biblioteca de cursos.</p>
         </div>
         <div className="flex flex-wrap gap-2 md:gap-3 w-full sm:w-auto">
+          {/* Botão de Excluir em Massa */}
+          {selectedNodes.length > 0 && (
+            <div className="flex items-center gap-2">
+              {bulkDeleteConfirm ? (
+                <div className="flex items-center gap-2 bg-red-900/20 p-1 rounded-lg border border-red-500/30">
+                  <span className="text-[10px] text-red-400 px-2 font-bold uppercase">Excluir {selectedNodes.length}?</span>
+                  <button onClick={handleBulkDelete} className="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-md font-bold">Sim</button>
+                  <button onClick={() => setBulkDeleteConfirm(false)} className="text-slate-400 text-[10px] px-3 py-1.5 hover:text-white">Não</button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setBulkDeleteConfirm(true)}
+                  className="flex items-center justify-center gap-2 bg-red-600/10 hover:bg-red-600 text-red-400 hover:text-white px-3 md:px-4 py-2 rounded-lg transition-all border border-red-500/20 font-bold text-xs"
+                >
+                  <Trash2 className="w-4 h-4" /> Excluir ({selectedNodes.length})
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Botão de Seed (Semear dados iniciais) */}
           {seedConfirm ? (
             <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700 flex-1 sm:flex-none justify-center">
@@ -161,24 +256,12 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Banner Informativo sobre a Biblioteca */}
-      <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex items-start gap-4">
-        <div className="p-2 bg-blue-600/20 rounded-xl">
-          <BookOpen className="w-5 h-5 text-blue-400" />
-        </div>
-        <div>
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">Biblioteca de Cursos</h4>
-          <p className="text-xs text-slate-400 leading-relaxed mt-1">
-            Os recursos adicionados à <span className="text-blue-400 font-bold">Biblioteca</span> ficarão disponíveis para todos os alunos, independente do progresso na trilha principal.
-          </p>
-        </div>
-      </div>
 
       {/* Lista de Módulos Cadastrados */}
       <div className="grid gap-4">
         {/* Renderizar Biblioteca Primeiro */}
-        {nodes.filter(n => n.order_index === 9).map((node) => (
-          <div key={node.id} className="bg-blue-500/5 border border-blue-500/50 p-4 md:p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group transition-all">
+        {libraryNode && (
+          <div key={libraryNode.id} className="bg-blue-500/5 border border-blue-500/50 p-4 md:p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group transition-all">
             <div className="flex items-center gap-4 md:gap-6">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20 shrink-0">
                 <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
@@ -188,36 +271,55 @@ export default function AdminDashboard() {
                   <h3 className="font-black text-white text-base md:text-lg tracking-tight uppercase">Biblioteca Geral</h3>
                   <span className="bg-blue-500 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Ativo</span>
                 </div>
-                <p className="text-xs md:text-sm text-slate-400 font-medium line-clamp-2">{node.description}</p>
+                <p className="text-xs md:text-sm text-slate-400 font-medium line-clamp-2">{libraryNode.description}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button 
-                onClick={() => setEditingNode(node)}
+                onClick={() => setEditingNode(libraryNode)}
                 className="flex items-center justify-center gap-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 rounded-xl transition-all border border-blue-500/20 font-bold text-xs md:text-sm w-full sm:w-auto"
               >
                 <Edit2 className="w-4 h-4" /> Gerenciar Biblioteca
               </button>
             </div>
           </div>
-        ))}
+        )}
 
         <div className="h-px bg-slate-800 my-2" />
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Trilha de Aprendizado Principal</h3>
+        <div className="flex justify-between items-center px-2">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Trilha de Aprendizado Principal</h3>
+          {mainNodesList.length > 0 && (
+            <button 
+              onClick={toggleSelectAll}
+              className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-widest transition-colors"
+            >
+              {selectedNodes.length === mainNodesList.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+            </button>
+          )}
+        </div>
 
-        {nodes.filter(n => n.order_index !== 9).map((node) => {
+        {mainNodesList.map((node, index, filteredArray) => {
+          const isSelected = selectedNodes.includes(node.id);
           return (
-            <div key={node.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between group transition-all">
+            <div key={node.id} className={`bg-slate-900 border ${isSelected ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-800'} p-4 rounded-xl flex items-center justify-between group transition-all`}>
               <div className="flex items-center gap-4">
+                {/* Checkbox de Seleção */}
+                <button 
+                  onClick={() => toggleSelectNode(node.id)}
+                  className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-700 hover:border-slate-500'}`}
+                >
+                  {isSelected && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                </button>
+
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold bg-slate-800 text-blue-400">
-                  {node.order_index + 1}
+                  {node.order_index === 9 ? 'LIB' : node.order_index + 1}
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-100">{node.title}</h3>
                   <p className="text-sm text-slate-500 line-clamp-1">{node.description}</p>
                 </div>
               </div>
-              {/* Ações do Módulo (Editar/Excluir) */}
+              {/* Ações do Módulo (Editar/Excluir/Reordenar) */}
               <div className="flex items-center gap-2">
                 {deleteConfirm === node.id ? (
                   <div className="flex items-center gap-2 bg-red-900/20 p-1 rounded-lg border border-red-500/30">
@@ -225,7 +327,27 @@ export default function AdminDashboard() {
                     <button onClick={() => setDeleteConfirm(null)} className="text-slate-400 text-xs px-3 py-1.5 hover:text-white">Cancelar</button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Botões de Reordenação */}
+                    <div className="flex flex-col sm:flex-row gap-1 mr-2">
+                      <button 
+                        disabled={index === 0 || reordering}
+                        onClick={() => handleMoveNode(index, 'up')}
+                        className={`p-1.5 rounded-md transition-all ${index === 0 ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
+                        title="Mover para cima"
+                      >
+                        <MoveUp className="w-4 h-4" />
+                      </button>
+                      <button 
+                        disabled={index === filteredArray.length - 1 || reordering}
+                        onClick={() => handleMoveNode(index, 'down')}
+                        className={`p-1.5 rounded-md transition-all ${index === filteredArray.length - 1 ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
+                        title="Mover para baixo"
+                      >
+                        <MoveDown className="w-4 h-4" />
+                      </button>
+                    </div>
+
                     <button 
                       onClick={() => setEditingNode(node)}
                       className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"

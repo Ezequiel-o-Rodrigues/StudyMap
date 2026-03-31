@@ -413,7 +413,7 @@ export default function App() {
         {/* Rodapé Padrão */}
         <footer className="py-6 border-t border-slate-900 text-center">
           <p className="text-xs text-slate-600 font-medium tracking-widest uppercase">
-            &copy; 2025 Techify - Todos os direitos reservados
+            &copy; 2026 Techify - Todos os direitos reservados
           </p>
         </footer>
       </main>

@@ -388,6 +388,42 @@ async function startServer() {
     }
   });
 
+  app.post("/api/nodes/bulk-delete", authenticate, isAdmin, async (req: any, res: any) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "IDs inválidos" });
+    }
+    try {
+      await pool.query("DELETE FROM nodes WHERE id = ANY($1::uuid[])", [ids]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Erro ao deletar módulos em massa" });
+    }
+  });
+
+  app.post("/api/nodes/reorder", authenticate, isAdmin, async (req: any, res: any) => {
+    const { orders } = req.body; // Array de { id, order_index }
+    if (!Array.isArray(orders)) {
+      return res.status(400).json({ error: "Dados de ordenação inválidos" });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const item of orders) {
+        await client.query("UPDATE nodes SET order_index = $1 WHERE id = $2", [item.order_index, item.id]);
+      }
+      await client.query('COMMIT');
+      res.json({ success: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error(err);
+      res.status(500).json({ error: "Erro ao reordenar módulos" });
+    } finally {
+      client.release();
+    }
+  });
+
   // Progress
   app.get("/api/progress/:userId", authenticate, async (req: any, res: any) => {
     const { userId } = req.params;
