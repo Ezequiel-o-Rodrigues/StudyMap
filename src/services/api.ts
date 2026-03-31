@@ -202,5 +202,14 @@ export const api = {
       body: JSON.stringify({ id, status, teacher_feedback: feedback })
     });
     return res.json();
+  },
+  async adminDeleteStudent(userId: string) {
+    const headers = await getHeaders();
+    const res = await fetch(`/api/admin/students/${userId}`, {
+      method: 'DELETE',
+      headers
+    });
+    if (!res.ok) throw new Error('Falha ao deletar aluno');
+    return res.json();
   }
 };

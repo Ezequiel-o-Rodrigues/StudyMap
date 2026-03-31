@@ -808,6 +808,28 @@ async function startServer() {
     }
   });
 
+  // Admin: Delete student and all related data
+  app.delete("/api/admin/students/:userId", authenticate, isAdmin, async (req: any, res: any) => {
+    const { userId } = req.params;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("DELETE FROM student_test_results WHERE user_id = $1", [userId]);
+      await client.query("DELETE FROM reports WHERE user_id = $1", [userId]);
+      await client.query("DELETE FROM progress WHERE user_id::uuid = $1::uuid", [userId]);
+      await client.query("DELETE FROM profiles WHERE user_id::uuid = $1::uuid", [userId]);
+      await client.query("DELETE FROM user_roles WHERE user_id::uuid = $1::uuid", [userId]);
+      await client.query('COMMIT');
+      res.json({ success: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error(err);
+      res.status(500).json({ error: "Erro ao deletar aluno" });
+    } finally {
+      client.release();
+    }
+  });
+
   // Admin: Get all reports with node titles
   app.get("/api/admin/reports", authenticate, isAdmin, async (req: any, res: any) => {
     try {

@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { LearningReport, StudyNode, UserRole } from '../types';
-import { Users, CheckCircle2, Clock, MessageSquare, Check, X, Search, ChevronRight, GraduationCap, Paperclip, FileText, Star, BrainCircuit, Trophy } from 'lucide-react';
+import { Users, CheckCircle2, Clock, MessageSquare, Check, X, Search, ChevronRight, GraduationCap, Paperclip, FileText, Star, BrainCircuit, Trophy, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface StudentProgress {
@@ -390,8 +390,8 @@ export default function StudentsDashboard() {
                   </div>
                 )}
 
-                {/* Botão de Promoção para Instrutor */}
-                <div className="mt-6 flex justify-center md:justify-start">
+                {/* Botões de Ação */}
+                <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-3">
                   <button
                     onClick={async () => {
                       if (window.confirm(`Deseja promover ${selectedStudent?.email} a Instrutor?`)) {
@@ -407,6 +407,23 @@ export default function StudentsDashboard() {
                     className="flex items-center gap-2 bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-700 hover:border-blue-500"
                   >
                     <GraduationCap className="w-4 h-4" /> Promover a Instrutor
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (window.confirm(`ATENÇÃO: Deseja realmente deletar ${selectedStudent?.email}? Todos os dados (progresso, relatórios e avaliações) serão removidos permanentemente.`)) {
+                        try {
+                          await api.adminDeleteStudent(selectedStudentId!);
+                          toast.success('Aluno deletado com sucesso.');
+                          setSelectedStudentId(null);
+                          await fetchData();
+                        } catch (err) {
+                          toast.error('Erro ao deletar aluno.');
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-red-600 text-slate-400 hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-700 hover:border-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" /> Deletar Aluno
                   </button>
                 </div>
               </div>
